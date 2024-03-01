@@ -1,42 +1,53 @@
 'use client'
 import { useEffect, useState } from 'react';
-import { Backspace } from 'react-bootstrap-icons';
 
+import { Backspace } from 'react-bootstrap-icons';
 import { evaluateExpressionSafely, formatInput } from "./utils";
 
 export default function BasicCalc() {
 
-  const [inputValue, setInputValue] = useState('')
+  const [inputValue, setInputValue] = useState('0')
   const [buttonValue, setButtonValue] = useState('')
   const [equacao, setEquacao] = useState('')
 
+  const createButton = (value: string, className: string, handleButton?: () => void) => {
+    return <button
+      onClick={handleButton
+        ? (handleButton)
+        : (e) => e.currentTarget.textContent && setButtonValue(e.currentTarget.textContent)}
+      key={value}
+      className={className}
+    >
+      {value === 'backspace'
+        ? <Backspace />
+        : value}
+    </button>
+  }
 
   const renderGridItems = () => {
-    const gridValues = ['%', '/', '*', 'backspace', '7', '8', '9', '-', '4', '5', '6', '+', '1', '2', '3', '=', 'c', '0', '.'];
-    return gridValues.map((value, index) => {
+    const gridValues = ['%', '/', '*', 'backspace', '7', '8', '9', '-', '4', '5', '6', '+', '1', '2', '3', '=', 'C', '0', '.'];
+    return gridValues.map((value) => {
       let className = "rounded-md py-1 border-1 border-purple-600/25 bg-purple-600/25 flex justify-center items-center";
-      if (value === '=') {
-        className += " row-span-2";
-        return <button onClick={() => handleResult(equacao)} key={index} className={className}>
-          =
-        </button>
-      }
-      if (value === 'backspace') {
-        return <button onClick={() => handleBackspace()} key={index} className={className}>
-          <Backspace />
-        </button>
-      }
-      return (
-        <button onClick={e => {
-          if (e.currentTarget.textContent === 'c') return updateValues('')
 
-          e.currentTarget.textContent && setButtonValue(e.currentTarget.textContent)
-        }
-
-        } key={index} className={className} >
-          {value}
-        </button >
-      );
+      switch (value) {
+        case '/':
+        case '*':
+        case '+':
+          return createButton(value, className, () => handleMaths(value))
+        case '-':
+          return createButton(value, className, () => handleSub(value))
+        case 'C':
+          return createButton(value, className, () => updateValues(''))
+        case 'backspace':
+          return createButton(value, className, () => handleBackspace())
+        case '%':
+          return createButton(value, className, () => handlePerc(equacao))
+        case '=':
+          className += " row-span-2";
+          return createButton(value, className, () => handleResult(equacao))
+        default:
+          return createButton(value, className)
+      }
     });
   };
 
@@ -46,47 +57,71 @@ export default function BasicCalc() {
     updateValues(result)
   }
 
-  /* WIP - tratar sequencia de caracteres matemáticos */
-  // const handleSum = (value: string) => {
-  //   setButtonValue(value)
-  // }
-  // const handleSub = (value: string) => {
-  //   setButtonValue(value)
-  // }
-  // const handleMult = (value: string) => {
-  //   setButtonValue(value)
-  // }
-  // const handleDiv = (value: string) => {
-  //   setButtonValue(value)
-  // }
+  const handleMaths = (value: string) => {
+    const lastChar = equacao[equacao.length - 1]
+    const maths = ['/', '*', '+', '-']
 
-  /* WIP - criar função de conversão de porcentagem */
-  // const handlePerc = (value: string) => {
-  //   setButtonValue(value)
-  // }
+    if (lastChar === value) return
+    if (maths.includes(lastChar)) {
+      return updateValues(equacao.slice(0, -1) + value);
+    }
+    return setButtonValue(value)
+  }
+  const handleSub = (value: string) => {
+    const lastChar = equacao[equacao.length - 1]
+    const penultChar = equacao[equacao.length - 2]
+    const maths = ['/', '*', '+', '-']
+
+    if (lastChar === value && penultChar === '-') return
+    if (maths.includes(lastChar)) {
+      if (penultChar !== value) return setButtonValue(value)
+      return updateValues(equacao.slice(0, -1) + value);
+    }
+    return setButtonValue(value)
+  }
+
+
+  const handlePerc = (value: string) => {
+    const lastChar = equacao[equacao.length - 1]
+    const maths = ['/', '*', '+', '-'];
+    let lastIndex = -1;
+
+    if (buttonValue === '%' || maths.includes(lastChar)) return
+
+    for (let i = 0; i < value.length; i++) {
+      if (maths.includes(value[i])) {
+        lastIndex = i;
+      }
+    }
+
+    const percent = parseInt(value.slice(lastIndex + 1)) / 100
+    console.log("🚀 ~ calcPercent:", percent)
+    console.log("🚀 ~ equacao.slice(lastIndex, -1) + value:", equacao.slice(0, lastIndex + 1) + percent)
+
+    setButtonValue('%')
+    updateValues(equacao.slice(0, lastIndex + 1) + percent)
+    return
+  }
 
   const updateValues = (value: string) => {
-    const newValue = value.length > 0 && value[0] === '0' ? value.slice(1, undefined) : value
-
+    const newValue = value.length > 0 && value[0] === '0' ? value.slice(1) : value
     setEquacao(newValue)
     setInputValue(newValue !== '' ? formatInput(newValue) : '0')
   }
 
   const handleBackspace = () => {
-    const temp = isNaN(parseInt(buttonValue)) ? equacao.slice(0, -1) : equacao.slice(0, -2)
-    updateValues(temp)
+    updateValues(equacao.slice(0, -1))
   }
 
   useEffect(() => {
     let newValue = equacao
-
-    if (buttonValue !== '') {
+    if (buttonValue !== '' && buttonValue !== '%') {
       newValue = equacao + buttonValue
       setButtonValue('')
+      updateValues(newValue)
     }
-
-    updateValues(newValue)
   }, [buttonValue])
+
 
   return (
     <div className="bg-purple-400 rounded-lg px-2 pt-2 pb-4 space-y-6">
